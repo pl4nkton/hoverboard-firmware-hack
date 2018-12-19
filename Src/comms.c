@@ -1,3 +1,4 @@
+#include "comms.h"
 #include "stm32f1xx_hal.h"
 #include "defines.h"
 #include "setup.h"
@@ -24,7 +25,7 @@ void setScopeChannel(uint8_t ch, int16_t val) {
   ch_buf[ch] = val;
 }
 
-void consoleScope() {
+void consoleScope(void) {
   #if defined DEBUG_SERIAL_SERVOTERM && (defined DEBUG_SERIAL_USART2 || defined DEBUG_SERIAL_USART3)
     uart_buf[0] = 0xff;
     uart_buf[1] = CLAMP(ch_buf[0]+127, 0, 255);
