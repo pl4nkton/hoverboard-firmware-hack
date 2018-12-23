@@ -84,6 +84,7 @@ void PPM_Init() {
 }
 #endif
 
+#ifdef CONTROL_NUNCHUCK
 void Nunchuck_Init() {
     //-- START -- init WiiNunchuck
   i2cBuffer[0] = 0xF0;
@@ -119,3 +120,4 @@ void Nunchuck_Read() {
   //setScopeChannel(2, (int)nunchuck_data[5] & 1);
   //setScopeChannel(3, ((int)nunchuck_data[5] >> 1) & 1);
 }
+#endif

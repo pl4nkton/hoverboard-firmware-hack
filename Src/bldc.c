@@ -12,7 +12,6 @@ volatile int pwmr = 0;
 volatile int weakl = 0;
 volatile int weakr = 0;
 
-extern volatile int speed;
 
 extern volatile adc_buf_t adc_buffer;
 
@@ -23,21 +22,21 @@ uint32_t buzzerPattern = 0;
 
 uint8_t enable = 0;
 
-const int pwm_res = 64000000 / 2 / PWM_FREQ; // = 2000
+static const int pwm_res = 64000000 / 2 / PWM_FREQ; // = 2000
 
-const uint8_t hall_to_pos[8] = {
-    0,
-    0,
-    2,
-    1,
-    4,
-    5,
-    3,
-    0,
+static const uint8_t hall_to_pos[8] = {
+  0,
+  0,
+  2,
+  1,
+  4,
+  5,
+  3,
+  0,
 };
 
-inline void blockPWM(int pwm, int pos, int *u, int *v, int *w) {
-  switch(pos) {
+static inline void blockPWM(int pwm, int pos, int *u, int *v, int *w) {
+  switch (pos) {
     case 0:
       *u = 0;
       *v = pwm;
@@ -150,7 +149,7 @@ void DMA1_Channel1_IRQHandler() {
   DMA1->IFCR = DMA_IFCR_CTCIF1;
   // HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
 
-  if(offsetcount < 1000) {  // calibrate ADC offsets
+  if (offsetcount < 1000) {  // calibrate ADC offsets
     offsetcount++;
     offsetrl1 = (adc_buffer.rl1 + offsetrl1) / 2;
     offsetrl2 = (adc_buffer.rl2 + offsetrl2) / 2;

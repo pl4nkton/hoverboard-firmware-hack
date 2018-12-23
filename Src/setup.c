@@ -51,8 +51,6 @@ volatile adc_buf_t adc_buffer;
 
 
 #ifdef CONTROL_SERIAL_USART2
-
-
 void UART_Control_Init() {
   GPIO_InitTypeDef GPIO_InitStruct;
   __HAL_RCC_USART2_CLK_ENABLE();
@@ -119,7 +117,6 @@ void UART_Control_Init() {
 HAL_DMA_Init(&hdma_usart2_tx);
  __HAL_LINKDMA(&huart2,hdmatx,hdma_usart2_tx);
 }
-
 #endif
 
 #ifdef DEBUG_SERIAL_USART3
