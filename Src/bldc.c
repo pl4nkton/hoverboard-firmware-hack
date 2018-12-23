@@ -35,6 +35,47 @@ static const uint8_t hall_to_pos[8] = {
   0,
 };
 
+static const GPIO_TypeDef *port_l[] = {
+  LEFT_HALL_U_PORT,
+  LEFT_HALL_V_PORT,
+  LEFT_HALL_W_PORT
+};
+
+static const unsigned int pins_l[] = {
+  LEFT_HALL_U_PIN,
+  LEFT_HALL_V_PIN,
+  LEFT_HALL_W_PIN
+};
+
+static const GPIO_TypeDef *port_r[] = {
+  RIGHT_HALL_U_PORT,
+  RIGHT_HALL_V_PORT,
+  RIGHT_HALL_W_PORT
+};
+
+static const unsigned int pins_r[] = {
+  RIGHT_HALL_U_PIN,
+  RIGHT_HALL_V_PIN,
+  RIGHT_HALL_W_PIN
+};
+
+
+//determine next position based on hall sensors
+static inline void getPos(volatile int *pos, const GPIO_TypeDef *port[], const unsigned int *pin) {
+  int pos_i;
+
+  uint8_t hall_u = !(port[0]->IDR & pin[0]);
+  uint8_t hall_v = !(port[1]->IDR & pin[1]);
+  uint8_t hall_w = !(port[2]->IDR & pin[2]);
+
+  uint8_t hall = hall_u * 1 + hall_v * 2 + hall_w * 4;
+  pos_i  = hall_to_pos[hall];
+  pos_i += 2;
+  pos_i %= 6;
+  *pos = pos_i;
+}
+
+
 static inline void blockPWM(int pwm, int pos, int *u, int *v, int *w) {
   switch (pos) {
     case 0:
@@ -121,6 +162,16 @@ inline void blockPhaseCurrent(int pos, int u, int v, int *q) {
 }
 
 uint32_t buzzerTimer        = 0;
+//disable PWM when current limit is reached (current chopping)
+static inline void chopCurrent(int cur, TIM_TypeDef *tim) {
+  //disable PWM when current limit is reached (current chopping)
+  if (ABS((cur) * MOTOR_AMP_CONV_DC_AMP) > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
+    tim->BDTR &= ~TIM_BDTR_MOE;
+  } else {
+    tim->BDTR |= TIM_BDTR_MOE;
+  }
+}
+
 
 int offsetcount = 0;
 int offsetrl1   = 2000;
@@ -164,44 +215,13 @@ void DMA1_Channel1_IRQHandler() {
     batteryVoltage = batteryVoltage * 0.99 + ((float)adc_buffer.batt1 * ((float)BAT_CALIB_REAL_VOLTAGE / (float)BAT_CALIB_ADC)) * 0.01;
   }
 
-  //disable PWM when current limit is reached (current chopping)
-  if(ABS((adc_buffer.dcl - offsetdcl) * MOTOR_AMP_CONV_DC_AMP) > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
-    LEFT_TIM->BDTR &= ~TIM_BDTR_MOE;
-    //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
-  } else {
-    LEFT_TIM->BDTR |= TIM_BDTR_MOE;
-    //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 0);
-  }
 
-  if(ABS((adc_buffer.dcr - offsetdcr) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
-    RIGHT_TIM->BDTR &= ~TIM_BDTR_MOE;
-  } else {
-    RIGHT_TIM->BDTR |= TIM_BDTR_MOE;
-  }
-
-  int ul, vl, wl;
-  int ur, vr, wr;
-
-  //determine next position based on hall sensors
-  uint8_t hall_ul = !(LEFT_HALL_U_PORT->IDR & LEFT_HALL_U_PIN);
-  uint8_t hall_vl = !(LEFT_HALL_V_PORT->IDR & LEFT_HALL_V_PIN);
-  uint8_t hall_wl = !(LEFT_HALL_W_PORT->IDR & LEFT_HALL_W_PIN);
-
-  uint8_t hall_ur = !(RIGHT_HALL_U_PORT->IDR & RIGHT_HALL_U_PIN);
-  uint8_t hall_vr = !(RIGHT_HALL_V_PORT->IDR & RIGHT_HALL_V_PIN);
-  uint8_t hall_wr = !(RIGHT_HALL_W_PORT->IDR & RIGHT_HALL_W_PIN);
-
-  uint8_t halll = hall_ul * 1 + hall_vl * 2 + hall_wl * 4;
-  posl          = hall_to_pos[halll];
-  posl += 2;
-  posl %= 6;
-
-  uint8_t hallr = hall_ur * 1 + hall_vr * 2 + hall_wr * 4;
-  posr          = hall_to_pos[hallr];
-  posr += 2;
-  posr %= 6;
+  chopCurrent(adc_buffer.dcl - offsetdcl, LEFT_TIM);
+  chopCurrent(adc_buffer.dcr - offsetdcr, RIGHT_TIM);
 
   blockPhaseCurrent(posl, adc_buffer.rl1 - offsetrl1, adc_buffer.rl2 - offsetrl2, &curl);
+  getPos(&posl, port_l, pins_l);
+  getPos(&posr, port_r, pins_r);
 
   //setScopeChannel(2, (adc_buffer.rl1 - offsetrl1) / 8);
   //setScopeChannel(3, (adc_buffer.rl2 - offsetrl2) / 8);
@@ -243,6 +263,9 @@ void DMA1_Channel1_IRQHandler() {
   } else {
       HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 0);
   }
+
+  int ul, vl, wl;
+  int ur, vr, wr;
 
   //update PWM channels based on position
   blockPWM(pwml, posl, &ul, &vl, &wl);
