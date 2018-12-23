@@ -172,6 +172,20 @@ static inline void chopCurrent(int cur, TIM_TypeDef *tim) {
   }
 }
 
+static inline void fweak(int pwm, int weak, int pos, int *u, int *v, int *w) {
+  int weaku, weakv, weakw;
+
+  if (pwm > 0) {
+    blockPWM(weak, (pos + 5) % 6, &weaku, &weakv, &weakw);
+  } else {
+    blockPWM(-weak, (pos + 1) % 6, &weaku, &weakv, &weakw);
+  }
+  *u += weaku;
+  *v += weakv;
+  *w += weakw;
+}
+
+
 
 int offsetcount = 0;
 int offsetrl1   = 2000;
@@ -271,25 +285,8 @@ void DMA1_Channel1_IRQHandler() {
   blockPWM(pwml, posl, &ul, &vl, &wl);
   blockPWM(pwmr, posr, &ur, &vr, &wr);
 
-  int weakul, weakvl, weakwl;
-  if (pwml > 0) {
-    blockPWM(weakl, (posl+5) % 6, &weakul, &weakvl, &weakwl);
-  } else {
-    blockPWM(-weakl, (posl+1) % 6, &weakul, &weakvl, &weakwl);
-  }
-  ul += weakul;
-  vl += weakvl;
-  wl += weakwl;
-
-  int weakur, weakvr, weakwr;
-  if (pwmr > 0) {
-    blockPWM(weakr, (posr+5) % 6, &weakur, &weakvr, &weakwr);
-  } else {
-    blockPWM(-weakr, (posr+1) % 6, &weakur, &weakvr, &weakwr);
-  }
-  ur += weakur;
-  vr += weakvr;
-  wr += weakwr;
+  fweak(pwml, weakl, posl, &ul, &vl, &wl);
+  fweak(pwmr, weakr, posr, &ur, &vr, &wr);
 
   LEFT_TIM->LEFT_TIM_U = CLAMP(ul + pwm_res / 2, 10, pwm_res-10);
   LEFT_TIM->LEFT_TIM_V = CLAMP(vl + pwm_res / 2, 10, pwm_res-10);
